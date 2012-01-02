@@ -60,6 +60,7 @@ class IO_GIF {
                 $extensionData = $bit->getData($extensionDataSize);
                 $bit_block = new IO_Bit();
                 $bit_block->input($extensionData);
+                $has_subblock = false;
                 switch ($extensionBlockLabel) {
                 case 0xF9: // Graphic Control
                     $extensionBlock['Reserved'] = $bit_block->getUIBits(3);
@@ -72,12 +73,8 @@ class IO_GIF {
                 case 0xFF: // Application Extension
                     $extensionBlock['ApplicationIdentifier'] = $bit_block->getData(8);
                     $extensionBlock['ApplicationAuthenticationCode'] = $bit_block->getData(3);
-                    $subBlockData = array();
-                    while (($subBlockSize = $bit->getUI8()) > 0) {
-                        $subBlockData []= $bit->getData($subBlockSize);
-                    }
-                    $extensionBlock['ApplicationData'] = $subBlockData;
-                    $bit->incrementOffset(-1, 0); // XXX
+                    $has_subblock = true;
+                    $subblock_label = 'ApplicationData';
                     break;
                 case 0xFE: // Comment Extension
                     $extensionBlock['CommentData'] = $extensionData;
@@ -88,7 +85,15 @@ class IO_GIF {
                     exit(0);
                     break;
                 }
-                $extensionBlockTrailer = $bit->getUI8();
+                if ($has_subblock) {
+                    $subBlockData = array();
+                    while (($subBlockSize = $bit->getUI8()) > 0) {
+                        $subBlockData []= $bit->getData($subBlockSize);
+                    }
+                    $extensionBlock[$subblock_label] = $subBlockData;
+                } else {
+                    $bit->getUI8(); // $extensionBlockTrailer
+                }
                 $block['ExtensionData'] = $extensionBlock;
                 break;
             case 0x2C: // Image Separator
@@ -107,6 +112,13 @@ class IO_GIF {
                 if ($imageDescriptor['LocalColorTableFlag']) {
                     $localColorTable = array();
                     $colorTableSize = pow(2, $sizeOfLocalColorTable+1);
+                    for ($i = 0 ; $i < $colorTableSize ; $i++) {
+                        $rgb = array();
+                        $rgb[] = $bit->getUI8();
+                        $rgb[] = $bit->getUI8();
+                        $rgb[] = $bit->getUI8();
+                        $localColorTable[] = $rgb;
+                    }
                     $block['LocalColorTable'] = $localColorTable;
                 }
                 $block['LZWMinimumCodeSize'] = $bit->getUI8();
@@ -118,7 +130,7 @@ class IO_GIF {
                 break;
             default:
                 echo "what?($separator)\n";
-                var_dump($bit->getOffset()); echo "\n";
+                print_r($bit->getOffset()); echo "\n";
                 exit(0);
                 break;
             }
