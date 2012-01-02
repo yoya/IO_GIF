@@ -192,15 +192,149 @@ class IO_GIF {
         }
     }
     function build() {
-        ;
+        $bit = new IO_Bit();
+        if (isset($this->GlobalColorTable) && (($colorTableSize = count($this->GlobalColorTable)) > 0)) {
+            if ($colorTableSize > 256) {
+                $colorTableSize = 256; // upper limit number of colors
+            }
+            if ($colorTableSize < 2) {
+                $this->SizeOfGlobalColorTable = 0;
+            } else {
+                $this->SizeOfGlobalColorTable = ceil(log($colorTableSize, 2)) - 1;
+            }
+            $this->GlobalColorTableFlag = 1;
+        } else {
+            $this->GlobalColorTableFlag = 0;
+            $this->SizeOfGlobalColorTable = 0;
+        }
+        // Header
+        $bit->putData($this->Signature, 3);
+        $bit->putData($this->Version, 3);
+        // Logical Screen Descriptor
+        $bit->putUI16LE($this->Screen['Width']);
+        $bit->putUI16LE($this->Screen['Height']);
+        // <Packed Fields>
+        $bit->putUIBit($this->GlobalColorTableFlag);
+        $bit->putUIBits($this->ColorResolution, 3);
+        $bit->putUIBit($this->SortFlag);
+        $bit->putUIBits($this->SizeOfGlobalColorTable, 3);
+        //
+        $bit->putUI8($this->BackgroundColorIndex);
+        $bit->putUI8($this->PixelAspectRatio);
+
+        // Global Color Table
+        if ($this->GlobalColorTableFlag) {
+            $globalColorTable = array();
+            $colorTableSize = pow(2, $this->SizeOfGlobalColorTable+1);
+            foreach ($this->GlobalColorTable as $rgb) {
+                $bit->putUI8($rgb[0]);
+                $bit->putUI8($rgb[1]);
+                $bit->putUI8($rgb[2]);
+            }
+        }
+        foreach ($this->BlockList as $block) {
+            $separator = $block['BlockLabel'];
+            $bit->putUI8($separator);
+            if ($separator === 0x3B) { // Trailer (End of GIF Data Stream)
+                break;
+            }
+            $has_subblock = false;
+            switch ($separator) {
+            case 0x21: // Extension
+                $extensionBlockLabel = $block['ExtensionLabel'];
+                $extensionDataSize = $block['ExtensionBlockSize'];
+                $bit->putUI8($extensionBlockLabel);
+                $extensionBlock = $block['ExtensionData'];
+                $bit_block = new IO_Bit();
+                switch ($extensionBlockLabel) {
+                case 0xF9: // Graphic Control
+                    $bit_block->putUIBits(0, 3); // Reserved
+                    $bit_block->putUIBits($extensionBlock['DisposalMethod'], 3);
+                    $bit_block->putUIBit($extensionBlock['UserInputFlag']);
+                    $bit_block->putUIBit($extensionBlock['TransparentColorFlag']);
+                    $bit_block->putUI16LE($extensionBlock['DelayTime']);
+                    $bit_block->putUI8($extensionBlock['TransparentColorIndex']);
+                    break;
+                case 0xFF: // Application Extension
+                    $bit_block->putData($extensionBlock['ApplicationIdentifier'], 8);
+                    $bit_block->putData($extensionBlock['ApplicationAuthenticationCode'], 3);
+                    $has_subblock = true;
+                    $subblock_label = 'ApplicationData';
+                    break;
+                case 0xFE: // Comment Extension
+                    $bit_block->putData($extensionBlock['CommentData']);
+                    break;
+                default:
+                    echo "default($blockLabel)\n";
+                    $extensionBlock['Data'] = $extensionData;
+                    exit(0);
+                    break;
+                }
+                $extensionData = $bit_block->output();
+                $extensionDataSize = strlen($extensionData);
+                $bit->putUI8($extensionDataSize);
+                $bit->putData($extensionData, $extensionDataSize);
+
+                if ($has_subblock) {
+                    foreach ($extensionBlock[$subblock_label] as $subBlock) {
+                        $subBlockSize = strlen($subBlock);
+                        $bit->putUI8($subBlockSize);
+                        $bit->putData($subBlock);
+                    }
+                }
+                $bit->putUI8(0); // $extensionBlockTrailer
+                break;
+            case 0x2C: // Image Separator
+                if (isset($block['LocalColorTable']) && (($colorTableSize = count($block['LocalColorTable'])) > 0)) {
+                    if ($colorTableSize > 256) {
+                        $colorTableSize = 256; // upper limit number of colors
+                    }
+                    if ($colorTableSize < 2) {
+                        $sizeOfLocalColorTable = 0;
+                    } else {
+                        $sizeOfLocalColorTable = ceil(log($colorTableSize, 2)) - 1;
+                    }
+                    $imageDescriptor['LocalColorTableFlag'] = 1;
+                } else {
+                    $imageDescriptor['LocalColorTableFlag'] = 0;
+                    $sizeOfLocalColorTable = 0;
+                }
+
+                $imageDescriptor = $block['ImageDescriptor'];
+                $bit->putUI16LE($imageDescriptor['Left']);
+                $bit->putUI16LE($imageDescriptor['Top']);
+                $bit->putUI16LE($imageDescriptor['Width']);
+                $bit->putUI16LE($imageDescriptor['Height']);
+                $bit->putUIBit($imageDescriptor['LocalColorTableFlag']);
+                $bit->putUIBit($imageDescriptor['InterlaceFlag']);
+                $bit->putUIBit($imageDescriptor['SortFlag']);
+                $bit->putUIBits($imageDescriptor['Reserved'], 2);
+                $bit->putUIBits($sizeOfLocalColorTable, 3);
+
+                if ($imageDescriptor['LocalColorTableFlag']) {
+                    $localColorTable = $block['LocalColorTable'];
+                    $colorTableSize = pow(2, $sizeOfLocalColorTable+1);
+                    foreach ($localColorTable as $rgb) {
+                        $bit->putUI8($rgb[0]);
+                        $bit->putUI8($rgb[1]);
+                        $bit->putUI8($rgb[2]);
+                    }
+                }
+                $bit->putUI8($block['LZWMinimumCodeSize']);
+                foreach ($block['ImageData'] as $subBlockData) {
+                    $bit->putUI8(strlen($subBlockData));
+                    $bit->putData($subBlockData);
+                }
+                $bit->putUI8(0); // Sub-block Trailer
+                break;
+            default:
+                echo "what?($separator)\n";
+                print_r($bit->getOffset()); echo "\n";
+                exit(0);
+                break;
+            }
+        }
+        $bit->putUI8(0x3B); // Trailer (End of GIF Data Stream)
+        return $bit->output();
     }
 }
-
-// test routine
-
-$gifdata = file_get_contents($argv[1]);
-$gif = new IO_GIF();
-$gif->parse($gifdata);
-
-$gif->dump();
-
