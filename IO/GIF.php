@@ -7,10 +7,12 @@ class IO_GIF {
     var $Version;
     var $GlobalColorTable = null;
     var $BlockList;
+    var $gifdata;
     
     function parse($gifdata) {
         $bit = new IO_Bit();
         $bit->input($gifdata);
+        $this->gifdata = $gifdata; // for hexdump
         // Header
         $this->Signature = $bit->getData(3);
         $this->Version = $bit->getData(3);
@@ -27,6 +29,8 @@ class IO_GIF {
         $this->BackgroundColorIndex = $bit->getUI8();
         $this->PixelAspectRatio = $bit->getUI8();
 
+        list($this->header_byte_size, $dummy) = $bit->getOffset();
+        $this->globalcolortable_byte_offset = $this->header_byte_size;
         // Global Color Table
         if ($this->GlobalColorTableFlag) {
             $globalColorTable = array();
@@ -40,15 +44,16 @@ class IO_GIF {
             }
             $this->GlobalColorTable = $globalColorTable;
         }
+        list($block_head_byte_offset, $dummy) = $bit->getOffset();
+        $this->globalcolortable_byte_size = $block_head_byte_offset - $this->globalcolortable_byte_offset;
         $this->BlockList = array();
         while (true) {
             list($byte_offset, $dummy) = $bit->getOffset();
             $separator = $bit->getUI8();
-            if ($separator === 0x3B) { // Trailer (End of GIF Data Stream)
-                break;
-            }
-            $block = array('BlockLabel' => $separator);
+            $block = array('BlockLabel' => $separator, 'byte_offset' => $byte_offset);
             switch ($separator) {
+            case 0x3B: // Trailer (End of GIF Data Stream)
+                break;
             case 0x21: // Extension
                 $extensionBlockLabel = $bit->getUI8();
                 $block['ExtensionLabel'] = $extensionBlockLabel;
@@ -134,17 +139,30 @@ class IO_GIF {
                 exit(0);
                 break;
             }
+            list($byte_offset2, $dummy) = $bit->getOffset();
+            $block['byte_size'] = $byte_offset2 - $byte_offset;
             $this->BlockList[] = $block;
+            if ($separator === 0x3B) { // Trailer (End of GIF Data Stream)
+                break;
+            }
         }
     }
-    function dump() {
+    function dump($opts) {
+        if (empty($opts['hexdump']) === false) {
+            $bit = new IO_Bit();
+            $bit->input($this->gifdata);
+        }
         echo "Signature:{$this->Signature} Version:{$this->Version}\n";
         echo "Screen: Width:{$this->Screen['Width']} Height:{$this->Screen['Height']}\n";
         echo "GlobalColorTableFlag:{$this->GlobalColorTableFlag} ";
         echo "ColorResolution:".($this->ColorResolution + 1)." ";
         echo "SortFlag:{$this->SortFlag} ";
         echo "SizeOfGlobalColorTable: ".pow(2, $this->SizeOfGlobalColorTable+1)."\n";
+        if (empty($opts['hexdump']) === false) {
+            $bit->hexdump(0, $this->header_byte_size);
+        }
         if (is_null($this->GlobalColorTable) === false) {
+            echo "GlobalColorTable:\n";
             foreach ($this->GlobalColorTable as $idx => $rgb) {
                 printf("#%02x%02x%02x ", $rgb[0], $rgb[1], $rgb[2]);
                 if (($idx % 8) == 7) {
@@ -153,6 +171,9 @@ class IO_GIF {
             }
             if (($idx % 8) !== 7) {
                 echo "\n";
+            }
+            if (empty($opts['hexdump']) === false) {
+                $bit->hexdump($this->globalcolortable_byte_offset, $this->globalcolortable_byte_size);
             }
         }
         foreach ($this->BlockList as $block) {
@@ -189,6 +210,9 @@ class IO_GIF {
                 break;
             }
             echo "\n";
+            if (empty($opts['hexdump']) === false) {
+                $bit->hexdump($block['byte_offset'], $block['byte_size']);
+            }
         }
     }
     function build() {

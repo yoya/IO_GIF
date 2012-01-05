@@ -7,7 +7,10 @@ if ($argc < 2) {
     exit (1);
 }
 
+// $opts = array();
+$opts['hexdump'] = true;
+
 $gifdata = file_get_contents($argv[1]);
 $gif = new IO_GIF();
 $gif->parse($gifdata);
-$gif->dump();
+$gif->dump($opts);
