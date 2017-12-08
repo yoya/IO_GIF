@@ -1,0 +1,21 @@
+{
+    "name": "yoya/io_gif",
+    "type": "library",
+    "description": "GIF library",
+    "keywords": ["gif", "image"],
+    "homepage": "http://pwiki.awm.jp/~yoya/?IO_GIF",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "yoya",
+            "email": "yoya@awm.jp"
+        }
+    ],
+    "require": {
+        "php": ">=5.1.0",
+        "yoya/io_bit": "~2.4.0"
+    },
+    "autoload": {
+        "psr-0": { "IO_GIF": "." }
+    }
+}

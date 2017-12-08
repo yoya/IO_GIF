@@ -1,6 +1,15 @@
 <?php
 
-require_once 'IO/Bit.php';
+/*
+  IO_GIF class
+  (c) 2011/12/30 yoya@awm.jp
+ */
+
+if (is_readable('vendor/autoload.php')) {
+    require 'vendor/autoload.php';
+} else {
+    require_once 'IO/Bit.php';
+}
 
 class IO_GIF {
     var $Signature;
