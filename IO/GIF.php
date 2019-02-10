@@ -156,6 +156,20 @@ class IO_GIF {
             }
         }
     }
+    function dumpColorTable($colorTable) {
+        foreach ($colorTable as $idx => $rgb) {
+            if (($idx % 8) == 0) {
+                echo "    ";
+            }
+            printf("#%02x%02x%02x ", $rgb[0], $rgb[1], $rgb[2]);
+            if (($idx % 8) == 7) {
+                echo "\n";
+            }
+        }
+        if (($idx % 8) !== 7) {
+            echo "\n";
+        }
+    }
     function dump($opts) {
         if (empty($opts['hexdump']) === false) {
             $bit = new IO_Bit();
@@ -172,15 +186,7 @@ class IO_GIF {
         }
         if (is_null($this->GlobalColorTable) === false) {
             echo "GlobalColorTable:\n";
-            foreach ($this->GlobalColorTable as $idx => $rgb) {
-                printf("#%02x%02x%02x ", $rgb[0], $rgb[1], $rgb[2]);
-                if (($idx % 8) == 7) {
-                    echo "\n";
-                }
-            }
-            if (($idx % 8) !== 7) {
-                echo "\n";
-            }
+            $this->dumpColorTable($this->GlobalColorTable);
             if (empty($opts['hexdump']) === false) {
                 $bit->hexdump($this->globalcolortable_byte_offset, $this->globalcolortable_byte_size);
             }
@@ -214,7 +220,10 @@ class IO_GIF {
                 echo " (Image)\n";
                 $desc = $block['ImageDescriptor'];
                 echo "    Left:{$desc['Left']} Top:{$desc['Top']} Width:{$desc['Width']} Height:{$desc['Height']}\n";
-                echo "    LocalColorTableFlag:{$desc['LocalColorTableFlag']} InterlaceFlag:{$desc['InterlaceFlag']} SortFlag:{$desc['SortFlag']} SizeOfLocalColorTable:{$desc['SizeOfLocalColorTable']}\n";
+                echo "    LocalColorTableFlag:{$desc['LocalColorTableFlag']} InterlaceFlag:{$desc['InterlaceFlag']} SortFlag:{$desc['SortFlag']} SizeOfLocalColorTable:".pow(2, $desc['SizeOfLocalColorTable']+1)."\n";
+                if ($desc['LocalColorTableFlag']) {
+                    $this->dumpColorTable($block['LocalColorTable']);
+                }
                 echo "    ImageData.count:".count($block['ImageData']);
                 break;
             }
