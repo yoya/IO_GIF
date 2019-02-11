@@ -96,7 +96,6 @@ class IO_GIF {
                 default:
                     echo "default($blockLabel)\n";
                     $extensionBlock['Data'] = $extensionData;
-                    exit(0);
                     break;
                 }
                 if ($has_subblock) {
