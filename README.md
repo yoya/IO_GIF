@@ -8,7 +8,7 @@ GIF parser &amp; dumper
 ```
 % composer require yoya/io_gif
 % php vendor/yoya/io_gif/sample/gifdump.php
-Usage: php gif_dump.php <gif_file>
+Usage: php gifdump.php <gif_file>
 % php vendor/yoya/io_gif/sample/gifdump.php -f t.gif
 Signature:GIF Version:89a
 Screen: Width:2 Height:2
