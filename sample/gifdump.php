@@ -7,7 +7,7 @@ if (is_readable('vendor/autoload.php')) {
 }
 
 function usage() {
-    echo "Usage: php gifdump.php <gif_file>".PHP_EOL;
+    echo "Usage: php gifdump.php -f <gif_file> [-h]".PHP_EOL;
 }
 
 $options = getopt("f:h");
