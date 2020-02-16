@@ -135,14 +135,18 @@ class IO_GIF {
                     $block['LocalColorTable'] = $localColorTable;
                 }
                 $block['LZWMinimumCodeSize'] = $bit->getUI8();
+                $subBlockSizeArray = array();
                 $subBlockData = array();
+                $LZWcode = '';
                 while (($subBlockSize = $bit->getUI8()) > 0) {
-                    $subBlockData []= $bit->getData($subBlockSize);
+                    $subBlockSizeArray []= $subBlockSize;
+                    $LZWcode .= $bit->getData($subBlockSize);
                 }
-                $block['ImageData'] = $subBlockData;
+                $block['SubBlockSizeArray'] = $subBlockSizeArray;
+                $block['LZWcode'] = $LZWcode;
                 break;
             default:
-                echo "what?($separator)\n";
+                echo "Unknown Separator($separator)\n";
                 print_r($bit->getOffset()); echo "\n";
                 exit(0);
                 break;
@@ -362,14 +366,25 @@ class IO_GIF {
                     }
                 }
                 $bit->putUI8($block['LZWMinimumCodeSize']);
-                foreach ($block['ImageData'] as $subBlockData) {
+                $LZWcode = $block['LZWcode'];
+                $LZWcodeLen = strlen($LZWcode);
+                $LZWcodeOffset = 0;
+                foreach ($block['SubBlockSizeArray'] as $subBlockSize) {
+                    $subBlockData = substr($LZWcode, $LZWcodeOffset, $subBlockSize);
                     $bit->putUI8(strlen($subBlockData));
                     $bit->putData($subBlockData);
+                    $LZWcodeOffset += $subBlockSize;
+                    if ($LZWcodeLen <= $LZWcodeOffset) {
+                        if ($LZWcodeLen < $LZWcodeOffset) {
+                            fprintf(STDERR, "Warning: LZWcodeLen:$LZWcodeLen < LZWcodeOffset:$LZWcodeOffset\n");
+                        }
+                        break;
+                    }
                 }
                 $bit->putUI8(0); // Sub-block Trailer
                 break;
             default:
-                echo "what?($separator)\n";
+                fprintf(STDERR, "Warning: Unknown Separator($separator)\n");
                 print_r($bit->getOffset()); echo "\n";
                 exit(0);
                 break;
