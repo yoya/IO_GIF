@@ -17,6 +17,7 @@ class IO_GIF {
     var $GlobalColorTable = null;
     var $BlockList;
     var $gifdata;
+    const LZW_MAX_CODE = 4095;
     
     function parse($gifdata) {
         $bit = new IO_Bit();
@@ -227,7 +228,19 @@ class IO_GIF {
                 if ($desc['LocalColorTableFlag']) {
                     $this->dumpColorTable($block['LocalColorTable']);
                 }
-                echo "    ImageData.count:".count($block['ImageData']);
+                $LZWMinCodeSize = $block['LZWMinimumCodeSize'];
+                echo "    LZWMinimumCodeSize:$LZWMinCodeSize\n";
+                echo "    SubBlockSizeArray:";
+                foreach ($block['SubBlockSizeArray'] as $subBlockSize) {
+                    echo "$subBlockSize ";
+                }
+                echo "\n";
+                $LZWcode = $block['LZWcode'];
+                echo "    LZWcode.len:".strlen($LZWcode)."\n";
+                if ($opts["lzwcode"]) {
+                    $indicesSize = $desc['Width'] * $desc['Height'];
+                    $this->dumpLZWcode($LZWcode, $LZWMinCodeSize, $indicesSize);
+                }
                 break;
             }
             echo "\n";
@@ -235,6 +248,74 @@ class IO_GIF {
                 $bit->hexdump($block['byte_offset'], $block['byte_size']);
             }
         }
+    }
+    function dumpLZWcode($LZWcode, $LZWCodeSize, $indicesSize) {
+        $bit = new IO_Bit();
+        $bit->input($LZWcode);
+        $clearCode = pow(2, $LZWCodeSize);
+        $endCode   = $clearCode + 1;
+        $nextCode  = $endCode   + 1;
+        $dictionarySize = $clearCode * 2;
+        echo "LZWCodeSize:$LZWCodeSize clearCode:$clearCode endCode:$endCode\n";
+        $finish = false;
+        $indicesProgress = 0;
+        $w = null;
+        for ($i = 0; $bit->hasNextData(0); $i++) {
+            if ($indicesProgress >= $indicesSize) {
+                break;
+            }
+            $code = $bit->getUIBitsLSB($LZWCodeSize+1);
+            if ($code === $clearCode) {
+                echo "=====  ClearCode\n";
+                if ($i > 0) {
+                    $LZWCodeSize++;
+                }
+                $dictionaryTable = [];
+                for ($i = 0; $i < $clearCode; $i++) {
+                    $dictionaryTable [] = [$i];
+                }
+                $dictionaryTable [] = null; // ClearCode
+                $dictionaryTable [] = null; // EndCode
+                $output = [];
+            } else if ($code === $endCode) {
+                echo "===== EndCode\n";
+                $finish = true;
+                $output = [];
+            } else {
+                // print_r($dictionaryTable);
+                echo "code:$code";
+                if (isset($dictionaryTable[$code])) {
+                    $output = $dictionaryTable[$code];
+                    echo " found\n";
+                } else {
+                     echo " NOT found\n";
+                    // var_dump(["w" => $w]);
+                    $output = array_merge($w, [$w[0]]);
+                }
+                // print_r(["output" => $output]);
+                if (is_array($w)) {
+                    // print_r(["w" => $w, "output" => $output]);
+                    $dictionaryTable []= array_merge($w, [$output[0]]);
+                }
+                $w = $output;
+            }
+            printf("[$i] %02x =>", $code);
+            if ($code === $clearCode) {
+                echo "clearCode\n";
+            } else if ($code === $endCode) {
+                echo "endCode\n";
+            } else {
+                foreach ($output as $c) {
+                    printf(" %02x", $c);
+                }
+                echo "\n";
+                $indicesProgress += count($output);
+            }
+            if ($finish) {
+                return ;
+            }
+        }
+        echo "\n";
     }
     function build() {
         $bit = new IO_Bit();

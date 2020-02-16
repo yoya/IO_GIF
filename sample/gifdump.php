@@ -7,10 +7,10 @@ if (is_readable('vendor/autoload.php')) {
 }
 
 function usage() {
-    echo "Usage: php gifdump.php -f <gif_file> [-h]".PHP_EOL;
+    echo "Usage: php gifdump.php -f <gif_file> [-h] [-z]".PHP_EOL;
 }
 
-$options = getopt("f:h");
+$options = getopt("f:hz");
 
 if (isset($options['f']) === false) {
     usage();
@@ -19,9 +19,8 @@ if (isset($options['f']) === false) {
 $filename = $options['f'];
 
 $opts = array();
-if (isset($options['h'])) {
-    $opts['hexdump'] = true;
-}
+$opts['hexdump'] = isset($options['h']);
+$opts['lzwcode']  = isset($options['z']);
 
 $gifdata = file_get_contents($filename);
 $gif = new IO_GIF();
