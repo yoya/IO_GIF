@@ -266,9 +266,6 @@ class IO_GIF {
             $code = $bit->getUIBitsLSB($LZWCodeSize+1);
             if ($code === $clearCode) {
                 // echo "=====  ClearCode\n";
-                if ($i > 0) {
-                    $LZWCodeSize++;
-                }
                 $dictionaryTable = [];
                 for ($j = 0; $j < $clearCode; $j++) {
                     $dictionaryTable [] = [$j];
@@ -288,6 +285,9 @@ class IO_GIF {
                 }
                 if (is_array($w)) {
                     $dictionaryTable []= array_merge($w, [$output[0]]);
+                    if (pow(2, $LZWCodeSize+1) <= count($dictionaryTable)) {
+                        $LZWCodeSize++;
+                    }
                 }
                 $w = $output;
             }
