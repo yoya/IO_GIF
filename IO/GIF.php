@@ -243,7 +243,6 @@ class IO_GIF {
                 }
                 break;
             }
-            echo "\n";
             if (empty($opts['hexdump']) === false) {
                 $bit->hexdump($block['byte_offset'], $block['byte_size']);
             }
@@ -266,44 +265,37 @@ class IO_GIF {
             }
             $code = $bit->getUIBitsLSB($LZWCodeSize+1);
             if ($code === $clearCode) {
-                echo "=====  ClearCode\n";
+                // echo "=====  ClearCode\n";
                 if ($i > 0) {
                     $LZWCodeSize++;
                 }
                 $dictionaryTable = [];
-                for ($i = 0; $i < $clearCode; $i++) {
-                    $dictionaryTable [] = [$i];
+                for ($j = 0; $j < $clearCode; $j++) {
+                    $dictionaryTable [] = [$j];
                 }
                 $dictionaryTable [] = null; // ClearCode
                 $dictionaryTable [] = null; // EndCode
                 $output = [];
             } else if ($code === $endCode) {
-                echo "===== EndCode\n";
+                // echo "===== EndCode\n";
                 $finish = true;
                 $output = [];
             } else {
-                // print_r($dictionaryTable);
-                echo "code:$code";
                 if (isset($dictionaryTable[$code])) {
                     $output = $dictionaryTable[$code];
-                    echo " found\n";
                 } else {
-                     echo " NOT found\n";
-                    // var_dump(["w" => $w]);
                     $output = array_merge($w, [$w[0]]);
                 }
-                // print_r(["output" => $output]);
                 if (is_array($w)) {
-                    // print_r(["w" => $w, "output" => $output]);
                     $dictionaryTable []= array_merge($w, [$output[0]]);
                 }
                 $w = $output;
             }
             printf("[$i] %02x =>", $code);
             if ($code === $clearCode) {
-                echo "clearCode\n";
+                echo " <clearCode>\n";
             } else if ($code === $endCode) {
-                echo "endCode\n";
+                echo " <endCode>\n";
             } else {
                 foreach ($output as $c) {
                     printf(" %02x", $c);
@@ -315,7 +307,6 @@ class IO_GIF {
                 return ;
             }
         }
-        echo "\n";
     }
     function build() {
         $bit = new IO_Bit();
