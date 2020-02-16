@@ -260,9 +260,6 @@ class IO_GIF {
         $indicesProgress = 0;
         $w = null;
         for ($i = 0; $bit->hasNextData(0); $i++) {
-            if ($indicesProgress >= $indicesSize) {
-                break;
-            }
             $code = $bit->getUIBitsLSB($LZWCodeSize+1);
             if ($code === $clearCode) {
                 // echo "=====  ClearCode\n";
@@ -285,25 +282,26 @@ class IO_GIF {
                 }
                 if (is_array($w)) {
                     $dictionaryTable []= array_merge($w, [$output[0]]);
-                    if (pow(2, $LZWCodeSize+1) <= count($dictionaryTable)) {
-                        $LZWCodeSize++;
-                    }
                 }
                 $w = $output;
             }
-            printf("[$i] %02x =>", $code);
+            $digits = ceil(($LZWCodeSize+1)/4);
+            printf("    [%d] %0{$digits}X(bits:%d) =>", $i, $code,$LZWCodeSize+1);
             if ($code === $clearCode) {
                 echo " <clearCode>\n";
             } else if ($code === $endCode) {
                 echo " <endCode>\n";
             } else {
                 foreach ($output as $c) {
-                    printf(" %02x", $c);
+                    printf(" %02X", $c);
                 }
                 echo "\n";
                 $indicesProgress += count($output);
             }
-            if ($finish) {
+            if (pow(2, $LZWCodeSize+1) <= count($dictionaryTable)) {
+                $LZWCodeSize++;
+            }
+            if (($indicesProgress >= $indicesSize) || $finish) {
                 return ;
             }
         }
