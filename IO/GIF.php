@@ -18,7 +18,6 @@ class IO_GIF {
     var $GlobalColorTable = null;
     var $BlockList;
     var $gifdata;
-    const LZW_MAX_CODE = 4095;
     
     function parse($gifdata) {
         $bit = new IO_Bit();
