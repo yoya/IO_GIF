@@ -7,19 +7,20 @@ if (is_readable('vendor/autoload.php')) {
 }
 
 class IO_GIF_LZW {
-    static function dumpLZWCode($LZWcode, $LZWCodeSize, $indicesSize) {
+    static function dumpLZWCode($LZWcode, $codeBits, $indicesSize) {
         $bit = new IO_Bit();
         $bit->input($LZWcode);
-        $clearCode = pow(2, $LZWCodeSize);
+        $clearCode = pow(2, $codeBits);
         $endCode   = $clearCode + 1;
         $nextCode  = $endCode   + 1;
         $dictionarySize = $clearCode * 2;
-        echo "LZWCodeSize:$LZWCodeSize clearCode:$clearCode endCode:$endCode\n";
+        $LZWcodeSize = strlen($LZWcode);
+        echo "    CodeBits:$codeBits ClearCode:$clearCode EndCode:$endCode LZWcodeSize:$LZWcodeSize IndicesSize:$indicesSize\n";
         $finish = false;
         $indicesProgress = 0;
         $w = null;
         for ($i = 0; $bit->hasNextData(0); $i++) {
-            $code = $bit->getUIBitsLSB($LZWCodeSize+1);
+            $code = $bit->getUIBitsLSB($codeBits+1);
             if ($code === $clearCode) {
                 // echo "=====  ClearCode\n";
                 $dictionaryTable = [];
@@ -44,9 +45,9 @@ class IO_GIF_LZW {
                 }
                 $w = $output;
             }
-            $digits = ceil(($LZWCodeSize+1)/4);
+            $digits = ceil(($codeBits+1)/4);
             printf("    [%d] %0{$digits}X(bits:%d) =>",
-                   $i, $code, $LZWCodeSize+1);
+                   $i, $code, $codeBits+1);
             if ($code === $clearCode) {
                 echo " <clearCode>\n";
             } else if ($code === $endCode) {
@@ -59,8 +60,8 @@ class IO_GIF_LZW {
                 echo "\n";
                 $indicesProgress += count($output);
             }
-            if (pow(2, $LZWCodeSize+1) <= count($dictionaryTable)) {
-                $LZWCodeSize++;
+            if (pow(2, $codeBits+1) <= count($dictionaryTable)) {
+                $codeBits++;
             }
             if (($indicesProgress >= $indicesSize) || $finish) {
                 return ;
