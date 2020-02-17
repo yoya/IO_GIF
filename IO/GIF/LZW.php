@@ -78,21 +78,26 @@ class IO_GIF_LZW {
     var $_data;
     var $_data_offset;
     function DGifBufferedInput(&$NextByte) {
+        if (strlen($this->_data) <= $this->_data_offset) {
+            throw new Exception("D_GIF_ERR_READ_FAILED");
+        }
         $NextByte = ord($this->_data{$this->_data_offset});
         $this->_data_offset++;
     }
     function DGifSetupDecompress($codeBits) {
-        $this->BitPerPixel = $codeBits;
-        $this->ClearCode = (1 << $this->BitPerPixel);
-        $this->EOFCode = $this->ClearCode + 1;
+        $this->BitsPerPixel = $codeBits;
+        $this->ClearCode = (1 << $this->BitsPerPixel);
+        $this->EOFCode   = $this->ClearCode + 1;
         $this->RunningCode = $this->EOFCode + 1;
-        $this->RunningBits = $this->BitPerPixel + 1;
+        $this->RunningBits = $this->BitsPerPixel + 1;
         $this->MaxCode1 = 1 << $this->RunningBits;
         $this->StackPtr = 0;
-        $this->LastCode = null;
+        $this->LastCode = self::NO_SUCH_CODE;
         $this->CrntShiftState = 0;
         $this->CrntShiftDWord = 0;
-        $this->Prefix = new SplFixedArray(self::LZ_MAX_CODE+1);
+        $this->Stack  = new SplFixedArray(self::LZ_MAX_CODE);
+        $this->Suffix = new SplFixedArray(self::LZ_MAX_CODE + 1);
+        $this->Prefix = new SplFixedArray(self::LZ_MAX_CODE + 1);
         for ($i = 0; $i <= self::LZ_MAX_CODE; $i++) {
             $this->Prefix[$i] = self::NO_SUCH_CODE;
         }
@@ -121,13 +126,81 @@ class IO_GIF_LZW {
             $this->RunningBits++;
         }
     }
-    function dumpLZWCode_Giflib($LZWcode, $codeBits, $indicesSize) {
+    function DGifGetPrefixChar($Prefix, $Code, $ClearCode) {
+        $i = 0;
+        while ($Code > $ClearCode && $i++ <= self::LZ_MAX_CODE) {
+            if ($Code > self::LZ_MAX_CODE) {
+                return self::NO_SUCH_CODE;
+            }
+            $Code = $Prefix[$Code];
+        }
+        return $Code;
+    }
+    function dumpLZWCode_Giflib($LZWcode, $codeBits, $LineLen) {
         // DGifBufferedInput initialize
         $this->_data = $LZWcode;
         $this->_data_offset = 0;
         $this->DGifSetupDecompress($codeBits);
-        $Code = null;
-        $this->DGifDecompressInput($Code);
-        var_dump($Code);
+        $StackPtr  = $this->StackPtr;
+        $Prefix    = $this->Prefix;
+        $Suffix    = $this->Suffix;
+        $Stack     = $this->Stack;
+        $EOFCode   = $this->EOFCode;
+        $ClearCode = $this->ClearCode;
+        $LastCode  = $this->LastCode;
+
+        if ($StackPtr > self::LZ_MAX_CODE) {
+            throw new Exception("StackPtr:$StackPtr > self::LZ_MAX_CODE:".self::LZ_MAX_CODE);
+        }
+        $i = 0;
+        $CrntCode = null;
+        while ($i < $LineLen) {
+            $this->DGifDecompressInput($CrntCode);
+            if ($CrntCode == $EOFCode) {
+                throw new Exception("D_GIF_ERR_EOF_TOO_SOON");
+            } else if ($CrntCode == $ClearCode) {
+                echo "#### ClearCode:$ClearCode\n";
+                for ($j = 0; $j <= self::LZ_MAX_CODE; $j++) {
+                    $Prefix[$j] = self::NO_SUCH_CODE;
+                }
+                $this->RunningCode = $this->EOFCode + 1;
+                 $this->RunningBits = $this->BitsPerPixel + 1;
+                 $this->MaxCode1 = 1 << $this->RunningBits;
+                 $LastCode = $this->LastCode = self::NO_SUCH_CODE;
+            } else {
+                if ($CrntCode < $ClearCode) {
+                    printf("%02X => [$i] %02X\n", $CrntCode, $CrntCode,);
+                    $i++;
+                } else {
+                    if ($Prefix[$CrntCode] === self::NO_SUCH_CODE) {
+                        $CrntPrefix = $LastCode;
+                        if ($CrntCode == $this->RunningCode - 2) {
+                            $Suffix[$this->RunningCode - 2] =
+                                     $Stack[$StackPtr++] = $this->DGifGetPrefixChar($Prefix, $LastCode, $ClearCode);
+                        } else {
+                            $Suffix[$this->RunningCode - 2] =
+                                    $Stack[$StackPtr++] = $this->DGifGetPrefixChar($Prefix, $CrntCode, $ClearCode);
+                        }
+                    }  else {
+                        $CrntPrefix = $CrntCode;
+                    }
+                    while ($StackPtr < self::LZ_MAX_CODE &&
+                           $CrntPrefix > $ClearCode && $CrntPrefix <= self::LZ_MAX_CODE) {
+                        $Stack[$StackPtr++] = $Suffix[$CrntPrefix];
+                        $CrntPrefix = $Prefix[$CrntPrefix];
+                    }
+                    if ($StackPtr >= self::LZ_MAX_CODE || $CrntPrefix > self::LZ_MAX_CODE) {
+                        throw new Exception("D_GIF_ERR_IMAGE_DEFECT");
+                    }
+                    $Stack[$StackPtr++] = $CrntPrefix;
+                    printf("%02x => [$i]", $CrntCode);
+                    while ($StackPtr != 0 && $i < $LineLen) {
+                        printf(" %02x", Stack[--$StackPtr]);
+                        $i++;
+                    }
+                    echo "\n";
+                }
+            }
+        }
     }
 }
