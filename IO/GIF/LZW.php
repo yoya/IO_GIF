@@ -190,16 +190,17 @@ class IO_GIF_LZW {
                         $CrntPrefix = $Prefix[$CrntPrefix];
                     }
                     if ($StackPtr >= self::LZ_MAX_CODE || $CrntPrefix > self::LZ_MAX_CODE) {
-                        throw new Exception("D_GIF_ERR_IMAGE_DEFECT");
+                        throw new Exception("D_GIF_ERR_IMAGE_DEFECT: StackPtr:$StackPtr >= LZ_MAX_CODE:".self::LZ_MAX_CODE." || CrntPrefix:$CrntPrefix > LZ_MAX_CODE:".self::LZ_MAX_CODE);
                     }
                     $Stack[$StackPtr++] = $CrntPrefix;
                     printf("%02x => [$i]", $CrntCode);
                     while ($StackPtr != 0 && $i < $LineLen) {
-                        printf(" %02x", Stack[--$StackPtr]);
+                        printf(" %02x", $Stack[--$StackPtr]);
                         $i++;
                     }
                     echo "\n";
                 }
+                $LastCode = $CrntCode;
             }
         }
     }
