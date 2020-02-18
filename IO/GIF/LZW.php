@@ -200,8 +200,18 @@ class IO_GIF_LZW {
                     }
                     echo "\n";
                 }
-                $LastCode = $CrntCode;
+                if ($LastCode != self::NO_SUCH_CODE && $this->RunningCode - 2 < (self::LZ_MAX_CODE+1) && $Prefix[$this->RunningCode - 2] == self::NO_SUCH_CODE) {
+                    $Prefix[$this->RunningCode - 2] = $LastCode;
+                    if ($CrntCode == $this->RunningCode - 2) {
+                        $Suffix[$this->RunningCode - 2] =
+                            $this->DGifGetPrefixChar($Prefix, $LastCode, $ClearCode);
+                    } else {
+                        $Suffix[$this->RunningCode - 2] =
+                            $this->DGifGetPrefixChar($Prefix, $CrntCode, $ClearCode);
+                    }
+                }
             }
+            $LastCode = $CrntCode;
         }
     }
 }
