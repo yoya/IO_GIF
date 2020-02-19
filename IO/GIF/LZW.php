@@ -77,12 +77,11 @@ class IO_GIF_LZW {
     const LZ_BITS      = 12;
     var $_data;
     var $_data_offset;
-    function DGifBufferedInput(&$NextByte) {
+    function DGifBufferedInput() {
         if (strlen($this->_data) <= $this->_data_offset) {
             throw new Exception("D_GIF_ERR_READ_FAILED");
         }
-        $NextByte = ord($this->_data{$this->_data_offset});
-        $this->_data_offset++;
+        return ord($this->_data{$this->_data_offset++});
     }
     function DGifSetupDecompress($codeBits) {
         $this->BitsPerPixel = $codeBits;
@@ -102,7 +101,7 @@ class IO_GIF_LZW {
             $this->Prefix[$i] = self::NO_SUCH_CODE;
         }
     }
-    function DGifDecompressInput(&$Code) {
+    function DGifDecompressInput() {
         static $CodeMasks = [ 0x0000, 0x0001, 0x0003, 0x0007,
                               0x000f, 0x001f, 0x003f, 0x007f,
                               0x00ff, 0x01ff, 0x03ff, 0x07ff,
@@ -112,7 +111,7 @@ class IO_GIF_LZW {
         }
         $NextByte = null;
         while ($this->CrntShiftState < $this->RunningBits) {
-            $this->DGifBufferedInput($NextByte);
+            $NextByte = $this->DGifBufferedInput();
             $this->CrntShiftDWord |= $NextByte << $this->CrntShiftState;
             $this->CrntShiftState += 8;
         }
@@ -125,6 +124,7 @@ class IO_GIF_LZW {
             $this->MaxCode1 <<= 1;
             $this->RunningBits++;
         }
+        return $Code;
     }
     function DGifGetPrefixChar($Prefix, $Code, $ClearCode) {
         $i = 0;
@@ -153,9 +153,8 @@ class IO_GIF_LZW {
             throw new Exception("StackPtr:$StackPtr > self::LZ_MAX_CODE:".self::LZ_MAX_CODE);
         }
         $i = 0;
-        $CrntCode = null;
         while ($i < $LineLen) {
-            $this->DGifDecompressInput($CrntCode);
+            $CrntCode = $this->DGifDecompressInput();
             if ($CrntCode == $EOFCode) {
                 throw new Exception("D_GIF_ERR_EOF_TOO_SOON");
             } else if ($CrntCode == $ClearCode) {
@@ -164,9 +163,9 @@ class IO_GIF_LZW {
                     $Prefix[$j] = self::NO_SUCH_CODE;
                 }
                 $this->RunningCode = $this->EOFCode + 1;
-                 $this->RunningBits = $this->BitsPerPixel + 1;
-                 $this->MaxCode1 = 1 << $this->RunningBits;
-                 $LastCode = $this->LastCode = self::NO_SUCH_CODE;
+                $this->RunningBits = $this->BitsPerPixel + 1;
+                $this->MaxCode1 = 1 << $this->RunningBits;
+                $LastCode = $this->LastCode = self::NO_SUCH_CODE;
             } else {
                 if ($CrntCode < $ClearCode) {
                     printf("%02X => [$i] %02X\n", $CrntCode, $CrntCode,);
