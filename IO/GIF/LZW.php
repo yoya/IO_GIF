@@ -209,8 +209,10 @@ class IO_GIF_LZW {
                             $this->DGifGetPrefixChar($Prefix, $CrntCode, $ClearCode);
                     }
                 }
+                $LastCode = $CrntCode;
             }
-            $LastCode = $CrntCode;
         }
+        $this->LastCode = $LastCode;
+        $this->StackPtr = $StackPtr;
     }
 }
