@@ -81,7 +81,7 @@ class IO_GIF_LZW {
         if (strlen($this->_data) <= $this->_data_offset) {
             throw new Exception("D_GIF_ERR_READ_FAILED");
         }
-        return ord($this->_data{$this->_data_offset++});
+        return ord($this->_data[$this->_data_offset++]);
     }
     function DGifSetupDecompress($codeBits) {
         $this->BitsPerPixel = $codeBits;
