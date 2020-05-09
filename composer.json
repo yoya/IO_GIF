@@ -13,7 +13,7 @@
     ],
     "require": {
         "php": ">=5.1.0",
-        "yoya/io_bit": "~2.4.0"
+        "yoya/io_bit": "~3.0"
     },
     "autoload": {
         "psr-0": { "IO_GIF": "." }
