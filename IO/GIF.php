@@ -1,7 +1,7 @@
 <?php
 
 /*
-  IO_GIF class - v1.0.1
+  IO_GIF class - v2.0.0
   (c) 2011/12/30 yoya@awm.jp
  */
 
