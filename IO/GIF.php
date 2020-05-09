@@ -241,6 +241,7 @@ class IO_GIF {
                     $indicesSize = $desc['Width'] * $desc['Height'];
                     $lzw = new IO_GIF_LZW();
                     $lzw->dumpLZWCode($LZWcode, $LZWMinCodeSize, $indicesSize);
+                    // $lzw->dumpLZWCode_Giflib($LZWcode, $LZWMinCodeSize, $indicesSize);
                 }
                 break;
             }
